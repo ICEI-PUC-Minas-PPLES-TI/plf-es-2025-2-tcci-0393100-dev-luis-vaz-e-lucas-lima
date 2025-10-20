@@ -1,0 +1,14 @@
+(library
+ (public_name buscar-backend)
+ (name buscar_backend)
+ (libraries 
+  lwt 
+  dream 
+  caqti-lwt 
+  caqti-driver-postgresql 
+  redis-lwt 
+  yojson 
+  ppx_deriving_yojson.runtime
+  logs
+  fmt)
+ (preprocess (pps ppx_deriving_yojson)))

@@ -1,0 +1,4 @@
+(executable
+ (public_name buscar)
+ (name buscar)
+ (libraries dream lwt buscar.lib))

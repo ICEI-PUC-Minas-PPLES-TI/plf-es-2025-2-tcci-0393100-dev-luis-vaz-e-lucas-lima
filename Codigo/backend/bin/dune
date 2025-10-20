@@ -1,0 +1,4 @@
+(executable
+ (public_name buscar-backend)
+ (name main)
+ (libraries buscar_backend lwt dream logs fmt))

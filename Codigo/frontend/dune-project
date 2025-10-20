@@ -1,0 +1,19 @@
+(lang dune 3.16)
+
+(package
+ (name buscar)
+ (synopsis "BusCar - Brazilian car search platform")
+ (description "A car search platform for Brazil, combining Auto Tempest functionality with Webmotors listings and Bring a Trailer style presentations")
+ (maintainers "BusCar Team")
+ (authors "BusCar Team")
+ (homepage "https://github.com/buscar/buscar")
+ (bug_reports "https://github.com/buscar/buscar/issues")
+ (depends 
+  (ocaml (>= 4.14.0))
+  (dune (>= 3.0))
+  (ocamlfind (>= 1.9.8))
+  (dream (>= 1.0.0~alpha5))
+  (lwt (>= 5.6.0))
+  cohttp-lwt-unix
+  yojson
+  uri))

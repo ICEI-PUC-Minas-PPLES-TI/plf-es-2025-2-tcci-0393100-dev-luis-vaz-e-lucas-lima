@@ -1,0 +1,22 @@
+(lang dune 3.0)
+(name buscar-backend)
+(version 0.1.0)
+
+(package
+ (name buscar-backend)
+ (synopsis "BusCar Backend API")
+ (description "Backend API for BusCar platform with PostgreSQL and Redis")
+ (depends 
+  ocaml 
+  dune 
+  lwt
+  dream
+  caqti
+  caqti-lwt
+  caqti-driver-postgresql
+  redis-lwt
+  ppx_deriving_yojson
+  yojson
+  logs
+  fmt
+  (ocamlfind (>= 1.9.8))))
