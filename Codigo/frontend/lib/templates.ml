@@ -1640,7 +1640,7 @@ let vehicle_detail_template ~vehicle ~return_url () =
             "<!-- Rich Description -->" ^
             "<div style='background: var(--bg-card); border: 1px solid var(--border-color); padding: 3rem; border-radius: 1rem; margin-bottom: 3rem;'>" ^
               "<div class='markdown-content'>" ^
-                (markdown_to_html vehicle.detailed_description_md) ^
+                (markdown_to_html (Option.value ~default:"" vehicle.detailed_description_md)) ^
               "</div>" ^
             "</div>" ^
             
@@ -1653,7 +1653,7 @@ let vehicle_detail_template ~vehicle ~return_url () =
                   "<div style='display: grid; gap: 1rem;'>" ^
                     "<div style='display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border-color);'>" ^
                       "<span style='color: var(--text-muted); font-weight: 500;'>Motor</span>" ^
-                      "<span style='color: var(--text-primary); font-weight: 700;'>" ^ vehicle.engine ^ "</span>" ^
+                      "<span style='color: var(--text-primary); font-weight: 700;'>" ^ (Option.value ~default:"" vehicle.engine) ^ "</span>" ^
                     "</div>" ^
                     "<div style='display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border-color);'>" ^
                       "<span style='color: var(--text-muted); font-weight: 500;'>Combustível</span>" ^
@@ -1683,7 +1683,7 @@ let vehicle_detail_template ~vehicle ~return_url () =
                     "</div>" ^
                     "<div style='display: flex; justify-content: space-between; padding: 0.75rem 0;'>" ^
                       "<span style='color: var(--text-muted); font-weight: 500;'>Carroceria</span>" ^
-                      "<span style='color: var(--text-primary); font-weight: 700;'>" ^ vehicle.body_style ^ "</span>" ^
+                      "<span style='color: var(--text-primary); font-weight: 700;'>" ^ (Option.value ~default:"" vehicle.body_style) ^ "</span>" ^
                     "</div>" ^
                   "</div>" ^
                 "</div>" ^
@@ -1691,18 +1691,18 @@ let vehicle_detail_template ~vehicle ~return_url () =
                 "<div style='background: var(--bg-secondary); padding: 2rem; border-radius: 1rem;'>" ^
                   "<h3 style='color: var(--text-primary); font-weight: 700; margin-bottom: 1.5rem; font-size: 1.2rem;'>🔍 Condições</h3>" ^
                   "<div style='display: grid; gap: 1rem;'>" ^
-                    "<div style='display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border-color);'>" ^
-                      "<span style='color: var(--text-muted); font-weight: 500;'>Exterior</span>" ^
-                      "<span style='color: var(--accent); font-weight: 700;'>" ^ vehicle.exterior_condition ^ "</span>" ^
-                    "</div>" ^
-                    "<div style='display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border-color);'>" ^
-                      "<span style='color: var(--text-muted); font-weight: 500;'>Interior</span>" ^
-                      "<span style='color: var(--accent); font-weight: 700;'>" ^ vehicle.interior_condition ^ "</span>" ^
-                    "</div>" ^
-                    "<div style='display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border-color);'>" ^
-                      "<span style='color: var(--text-muted); font-weight: 500;'>Mecânica</span>" ^
-                      "<span style='color: var(--accent); font-weight: 700;'>" ^ vehicle.mechanical_condition ^ "</span>" ^
-                    "</div>" ^
+                  "<div style='display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border-color);'>" ^
+                    "<span style='color: var(--text-muted); font-weight: 500;'>Exterior</span>" ^
+                    "<span style='color: var(--accent); font-weight: 700;'>" ^ (Option.value ~default:"Bom" vehicle.exterior_condition) ^ "</span>" ^
+                  "</div>" ^
+                  "<div style='display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border-color);'>" ^
+                    "<span style='color: var(--text-muted); font-weight: 500;'>Interior</span>" ^
+                    "<span style='color: var(--accent); font-weight: 700;'>" ^ (Option.value ~default:"Bom" vehicle.interior_condition) ^ "</span>" ^
+                  "</div>" ^
+                  "<div style='display: flex; justify-content: space-between; padding: 0.75rem 0; border-bottom: 1px solid var(--border-color);'>" ^
+                    "<span style='color: var(--text-muted); font-weight: 500;'>Mecânica</span>" ^
+                    "<span style='color: var(--accent); font-weight: 700;'>" ^ (Option.value ~default:"Bom" vehicle.mechanical_condition) ^ "</span>" ^
+                  "</div>" ^
                     "<div style='display: flex; justify-content: space-between; padding: 0.75rem 0;'>" ^
                       "<span style='color: var(--text-muted); font-weight: 500;'>Proprietários</span>" ^
                       "<span style='color: var(--text-primary); font-weight: 700;'>" ^ string_of_int vehicle.previous_owners ^ "</span>" ^
@@ -1733,10 +1733,11 @@ let vehicle_detail_template ~vehicle ~return_url () =
              else "") ^
             
             "<!-- Inspection Report -->" ^
-            (if vehicle.inspection_notes <> "" then
+            (match vehicle.inspection_notes with
+             | Some notes when notes <> "" ->
               "<div style='background: linear-gradient(135deg, var(--accent), var(--accent-hover)); color: white; padding: 3rem; border-radius: 1rem; margin-bottom: 3rem;'>" ^
                 "<h2 style='font-weight: 800; margin-bottom: 1.5rem; font-size: 1.75rem;'>🔍 Relatório de Inspeção BusCars</h2>" ^
-                "<p style='line-height: 1.8; font-size: 1.1rem; opacity: 0.95;'>" ^ vehicle.inspection_notes ^ "</p>" ^
+                "<p style='line-height: 1.8; font-size: 1.1rem; opacity: 0.95;'>" ^ notes ^ "</p>" ^
                 "<div style='margin-top: 2rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.3); display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; font-size: 0.9rem;'>" ^
                   "<div>✓ <strong>127 pontos verificados</strong></div>" ^
                   "<div>✓ <strong>Histórico limpo</strong></div>" ^
@@ -1744,7 +1745,7 @@ let vehicle_detail_template ~vehicle ~return_url () =
                   "<div>✓ <strong>Procedência garantida</strong></div>" ^
                 "</div>" ^
               "</div>"
-             else "") ^
+             | _ -> "") ^
           "</div>" ^
           
           "<!-- Right Sidebar -->" ^

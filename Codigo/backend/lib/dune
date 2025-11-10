@@ -1,14 +1,24 @@
 (library
- (public_name buscar-backend)
- (name buscar_backend)
- (libraries 
-  lwt 
-  dream 
-  caqti-lwt 
-  caqti-driver-postgresql 
-  redis-lwt 
-  yojson 
-  ppx_deriving_yojson.runtime
-  logs
-  fmt)
+ (name buscar_backend_lib)
+ (modules types config database cache auth repository vehicle_commands swagger)
+  (libraries
+   dream
+   lwt
+   lwt.unix
+   caqti
+   caqti-lwt
+   caqti-lwt.unix
+   caqti-driver-postgresql
+   yojson
+   ppx_deriving_yojson.runtime
+   cryptokit
+   redis-lwt
+   redis
+   uuidm
+   ptime
+   ptime.clock.os
+   logs
+   logs.fmt
+   fmt)
  (preprocess (pps ppx_deriving_yojson)))
+

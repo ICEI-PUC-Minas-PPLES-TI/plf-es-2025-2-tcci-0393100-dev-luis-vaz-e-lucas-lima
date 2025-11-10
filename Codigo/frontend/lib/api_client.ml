@@ -1,106 +1,133 @@
-(* API client for communicating with the backend *)
-open Lwt.Syntax
+(* API Client for Backend Communication using Cohttp *)
 
+open Lwt.Infix
+open Types
+
+(* Backend API URL *)
 let backend_url = 
-  match Sys.getenv_opt "BACKEND_URL" with
-  | Some url -> url
-  | None -> "http://backend:3000"
+  try Sys.getenv "BACKEND_API_URL" 
+  with Not_found -> "http://backend:3000"
 
-(* HTTP client helper using Cohttp *)
-let make_request ?(method_="GET") ?(headers=[]) ?body url =
-  let uri = Uri.of_string (backend_url ^ url) in
-  let headers = Cohttp.Header.of_list (("Content-Type", "application/json") :: headers) in
-  
-  match method_ with
-  | "GET" -> 
-    (try 
-      let* (response, body) = Cohttp_lwt_unix.Client.get ~headers uri in
-      let status_code = Cohttp.Response.status response |> Cohttp.Code.code_of_status in
-      let* body_string = Cohttp_lwt.Body.to_string body in
-      Lwt.return_ok (status_code, body_string)
-    with
-    | exn -> 
-      Lwt.return_error ("Request failed: " ^ (Printexc.to_string exn))
-    )
-  | "POST" ->
-    let body_cohttp = match body with
-      | Some b -> `String b
-      | None -> `Empty in
-    (try 
-      let* (response, body) = Cohttp_lwt_unix.Client.post ~headers ~body:body_cohttp uri in
-      let status_code = Cohttp.Response.status response |> Cohttp.Code.code_of_status in
-      let* body_string = Cohttp_lwt.Body.to_string body in
-      Lwt.return_ok (status_code, body_string)
-    with
-    | exn -> 
-      Lwt.return_error ("Request failed: " ^ (Printexc.to_string exn))
-    )
-  | _ -> Lwt.return_error "Unsupported HTTP method"
+(* HTTP GET helper *)
+let http_get url =
+  let uri = Uri.of_string url in
+  Lwt.catch
+    (fun () ->
+      Cohttp_lwt_unix.Client.get uri >>= fun (_resp, body) ->
+      Cohttp_lwt.Body.to_string body >>= fun body_str ->
+      Lwt.return_some body_str)
+    (fun exn ->
+      Logs.warn (fun m -> m "HTTP GET failed for %s: %s" url (Printexc.to_string exn));
+      Lwt.return_none)
 
-(* Parse JSON response helper *)
-let parse_json_response json_string =
-  try
-    let json = Yojson.Basic.from_string json_string in
-    Ok json
-  with
-  | exn -> Error ("JSON parsing failed: " ^ (Printexc.to_string exn))
+(* HTTP POST helper *)
+let http_post url ~body =
+  let uri = Uri.of_string url in
+  let headers = Cohttp.Header.init_with "Content-Type" "application/json" in
+  let body = Cohttp_lwt.Body.of_string body in
+  Lwt.catch
+    (fun () ->
+      Cohttp_lwt_unix.Client.post ~headers ~body uri >>= fun (_resp, body) ->
+      Cohttp_lwt.Body.to_string body >>= fun body_str ->
+      Lwt.return_some body_str)
+    (fun exn ->
+      Logs.warn (fun m -> m "HTTP POST failed for %s: %s" url (Printexc.to_string exn));
+      Lwt.return_none)
 
-(* API Functions *)
-
-(* Get vehicles list with optional filters *)
-let get_vehicles ?brand ?model ?year_min ?price_max ?fuel_type ?condition ?source ?location_state ?page ?limit ?sort_by () =
+(* Fetch all vehicles from backend *)
+let fetch_vehicles ?brand ?model ?condition ?source ?page () =
   let params = [] in
-  let params = match brand with Some b -> ("brand", b) :: params | None -> params in
-  let params = match model with Some m -> ("model", m) :: params | None -> params in
-  let params = match year_min with Some y -> ("year_min", string_of_int y) :: params | None -> params in
-  let params = match price_max with Some p -> ("price_max", string_of_int p) :: params | None -> params in
-  let params = match fuel_type with Some f -> ("fuel_type", f) :: params | None -> params in
-  let params = match condition with Some c -> ("condition", c) :: params | None -> params in
-  let params = match source with Some s -> ("source", s) :: params | None -> params in
-  let params = match location_state with Some ls -> ("location_state", ls) :: params | None -> params in
-  let params = match page with Some p -> ("page", string_of_int p) :: params | None -> params in
-  let params = match limit with Some l -> ("limit", string_of_int l) :: params | None -> params in
-  let params = match sort_by with Some sb -> ("sort_by", sb) :: params | None -> params in
+  let params = match brand with Some b when b <> "" -> ("brand", b) :: params | _ -> params in
+  let params = match model with Some m when m <> "" -> ("model", m) :: params | _ -> params in
+  let params = match condition with Some c when c <> "" -> ("condition", c) :: params | _ -> params in
+  let params = match source with Some s when s <> "" -> ("source", s) :: params | _ -> params in
+  let params = match page with Some p -> ("page", string_of_int p) :: params | _ -> params in
   
   let query_string = 
-    if params = [] then ""
-    else "?" ^ (String.concat "&" (List.map (fun (k, v) -> k ^ "=" ^ v) params)) in
+    if List.length params > 0 then
+      "?" ^ String.concat "&" (List.map (fun (k, v) -> k ^ "=" ^ v) params)
+    else ""
+  in
   
-  let* result = make_request ("/api/vehicles" ^ query_string) in
-  match result with
-  | Error err -> Lwt.return_error err
-  | Ok (status_code, body) ->
-    if status_code = 200 then
-      match parse_json_response body with
-      | Ok json -> Lwt.return_ok json
-      | Error err -> Lwt.return_error err
-    else
-      Lwt.return_error ("HTTP error: " ^ (string_of_int status_code))
+  let url = backend_url ^ "/api/vehicles" ^ query_string in
+  http_get url >>= function
+  | Some json_str ->
+      (try
+        let json = Yojson.Safe.from_string json_str in
+        let vehicles_json = Yojson.Safe.Util.member "vehicles" json in
+        let vehicles_list = Yojson.Safe.Util.to_list vehicles_json in
+        Logs.info (fun m -> m "Got %d vehicles from API response" (List.length vehicles_list));
+        let vehicles = List.filter_map (fun v ->
+          match vehicle_of_yojson v with
+          | Ok vehicle -> 
+              Logs.info (fun m -> m "✅ Parsed: %s %s" vehicle.brand vehicle.model);
+              Some vehicle
+          | Error e -> 
+              let json_preview = Yojson.Safe.to_string v |> fun s -> String.sub s 0 (min 300 (String.length s)) in
+              Logs.err (fun m -> m "❌ Parse error: %s" e);
+              Logs.err (fun m -> m "JSON: %s..." json_preview);
+              None
+        ) vehicles_list in
+        Logs.info (fun m -> m "✅ Fetched %d vehicles from backend API" (List.length vehicles));
+        Lwt.return vehicles
+      with e ->
+        Logs.err (fun m -> m "❌ Exception parsing response: %s" (Printexc.to_string e));
+        Lwt.return [])
+  | None ->
+      Logs.err (fun m -> m "❌ Failed to fetch from backend");
+      Lwt.return []
 
-(* Get single vehicle by slug *)
-let get_vehicle_by_slug slug =
-  let* result = make_request ("/api/vehicles/" ^ slug) in
-  match result with
-  | Error err -> Lwt.return_error err
-  | Ok (status_code, body) ->
-    if status_code = 200 then
-      match parse_json_response body with
-      | Ok json -> Lwt.return_ok json
-      | Error err -> Lwt.return_error err
-    else if status_code = 404 then
-      Lwt.return_error "Vehicle not found"
-    else
-      Lwt.return_error ("HTTP error: " ^ (string_of_int status_code))
+(* Fetch single vehicle by slug *)
+let fetch_vehicle_by_slug slug =
+  let url = backend_url ^ "/api/vehicles/" ^ slug in
+  http_get url >>= function
+  | Some json_str ->
+      (try
+        let json = Yojson.Safe.from_string json_str in
+        let success = Yojson.Safe.Util.member "success" json |> Yojson.Safe.Util.to_bool in
+        if success then
+          let data = Yojson.Safe.Util.member "data" json in
+          match vehicle_of_yojson data with
+          | Ok vehicle -> 
+              Logs.info (fun m -> m "✅ Fetched vehicle %s from backend API" slug);
+              Lwt.return_some vehicle
+          | Error err -> 
+              Logs.warn (fun m -> m "Failed to parse vehicle: %s" err);
+              Lwt.return_none
+        else
+          Lwt.return_none
+      with e ->
+          Logs.err (fun m -> m "Exception parsing vehicle: %s" (Printexc.to_string e));
+          Lwt.return_none)
+  | None -> 
+      Logs.warn (fun m -> m "Failed to fetch vehicle %s from backend" slug);
+      Lwt.return_none
 
-(* Health check *)
-let health_check () =
-  let* result = make_request "/api/health" in
-  match result with
-  | Error err -> Lwt.return_error err
-  | Ok (status_code, body) ->
-    if status_code = 200 then
-      match parse_json_response body with
-      | Ok json -> Lwt.return_ok json
-      | Error err -> Lwt.return_error err
-    else
-      Lwt.return_error ("HTTP error: " ^ (string_of_int status_code))
+(* Login user *)
+let login email password =
+  let url = backend_url ^ "/api/auth/login" in
+  let body = Yojson.Safe.to_string (`Assoc [
+    ("email", `String email);
+    ("password", `String password);
+  ]) in
+  
+  http_post url ~body >>= function
+  | Some json_str ->
+      (try
+        let json = Yojson.Safe.from_string json_str in
+        let success = Yojson.Safe.Util.member "success" json |> Yojson.Safe.Util.to_bool in
+        if success then
+          let session_id = Yojson.Safe.Util.member "session_id" json |> Yojson.Safe.Util.to_string_option in
+          Logs.info (fun m -> m "✅ Login successful for %s" email);
+          Lwt.return_ok session_id
+        else
+          let message = Yojson.Safe.Util.member "message" json |> Yojson.Safe.Util.to_string in
+          Logs.warn (fun m -> m "Login failed: %s" message);
+          Lwt.return_error message
+      with e ->
+        Logs.err (fun m -> m "Failed to parse login response: %s" (Printexc.to_string e));
+        Lwt.return_error "Invalid response format")
+  | None -> 
+      Logs.err (fun m -> m "Failed to connect to backend for login");
+      Lwt.return_error "Backend connection failed"
+

@@ -1,0 +1,11 @@
+_build/
+.git/
+.gitignore
+*.md
+.env
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+

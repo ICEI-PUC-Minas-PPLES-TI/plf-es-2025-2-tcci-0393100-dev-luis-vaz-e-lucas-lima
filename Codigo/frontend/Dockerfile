@@ -12,7 +12,7 @@ USER opam
 RUN opam update && opam upgrade -y
 
 # Install dependencies with specific ocamlfind version
-RUN opam install "ocamlfind>=1.9.8" dune lwt dream cohttp-lwt-unix yojson uri -y
+RUN opam install "ocamlfind>=1.9.8" dune lwt dream yojson ppx_deriving_yojson logs fmt cohttp-lwt-unix -y
 
 # Copy project files
 COPY --chown=opam:opam . .

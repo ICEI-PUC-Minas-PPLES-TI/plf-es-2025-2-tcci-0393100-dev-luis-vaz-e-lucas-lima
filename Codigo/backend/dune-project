@@ -1,22 +1,37 @@
-(lang dune 3.0)
-(name buscar-backend)
-(version 0.1.0)
+(lang dune 3.7)
+
+(name buscar_backend)
+
+(generate_opam_files true)
+
+(source
+ (github rastrian/buscar-mockup))
+
+(authors "Rastrian")
+
+(maintainers "rastrian@example.com")
+
+(license MIT)
 
 (package
- (name buscar-backend)
- (synopsis "BusCar Backend API")
- (description "Backend API for BusCar platform with PostgreSQL and Redis")
- (depends 
-  ocaml 
-  dune 
+ (name buscar_backend)
+ (synopsis "BusCars Backend API - PostgreSQL + Redis")
+ (description "Backend API for BusCars car marketplace platform with PostgreSQL database and Redis caching")
+ (depends
+  (ocaml (>= 4.14.0))
+  dune
+  (dream (>= 1.0.0~alpha5))
+  (caqti (>= 2.0.0))
+  (caqti-lwt (>= 2.0.0))
+  (caqti-driver-postgresql (>= 2.0.0))
   lwt
-  dream
-  caqti
-  caqti-lwt
-  caqti-driver-postgresql
-  redis-lwt
-  ppx_deriving_yojson
-  yojson
+  (yojson (>= 2.0.0))
+  (ppx_deriving_yojson (>= 3.7.0))
+  (cryptokit (>= 1.16))
+  (redis-lwt (>= 0.7))
+  (redis (>= 0.7))
+  (uuidm (>= 0.9.8))
+  (ptime (>= 1.1.0))
   logs
-  fmt
-  (ocamlfind (>= 1.9.8))))
+  fmt))
+

@@ -1,4 +1,5 @@
 (library
  (public_name buscar.lib)
  (name buscar_lib)
- (libraries dream lwt cohttp-lwt-unix yojson uri))
+ (libraries dream lwt yojson logs fmt cohttp-lwt-unix)
+ (preprocess (pps ppx_deriving_yojson)))
