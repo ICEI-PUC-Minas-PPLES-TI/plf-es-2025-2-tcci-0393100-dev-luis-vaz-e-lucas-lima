@@ -1,0 +1,8 @@
+_build/
+*.opam.locked
+*.log
+.DS_Store
+*.swp
+*.swo
+*~
+

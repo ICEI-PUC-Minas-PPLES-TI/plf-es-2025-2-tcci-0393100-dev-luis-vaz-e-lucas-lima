@@ -11,6 +11,16 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     phone VARCHAR(50),
+    document_number VARCHAR(20),
+    address_street VARCHAR(255),
+    address_number VARCHAR(50),
+    address_complement VARCHAR(100),
+    address_neighborhood VARCHAR(100),
+    address_city VARCHAR(100),
+    address_state VARCHAR(50),
+    address_zipcode VARCHAR(10),
+    is_admin BOOLEAN DEFAULT FALSE,
+    referred_by_code_id INTEGER,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE,
@@ -18,9 +28,42 @@ CREATE TABLE IF NOT EXISTS users (
     subscription_tier VARCHAR(50) DEFAULT 'individual' CHECK (subscription_tier IN ('individual', 'professional', 'business'))
 );
 
--- Create index on email for faster lookups
+-- Create indexes on users
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_is_active ON users(is_active);
+CREATE INDEX idx_users_document_number ON users(document_number);
+CREATE INDEX idx_users_is_admin ON users(is_admin);
+
+-- Referral codes table
+CREATE TABLE IF NOT EXISTS referral_codes (
+    referral_code_id SERIAL PRIMARY KEY,
+    code VARCHAR(50) UNIQUE NOT NULL,
+    created_by_user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+-- User referrals table (tracks which user used which referral code)
+CREATE TABLE IF NOT EXISTS user_referrals (
+    user_referral_id SERIAL PRIMARY KEY,
+    referral_code_id INTEGER NOT NULL REFERENCES referral_codes(referral_code_id) ON DELETE CASCADE,
+    used_by_user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    used_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(referral_code_id, used_by_user_id)
+);
+
+-- Create indexes for referral system
+CREATE INDEX idx_referral_codes_created_by ON referral_codes(created_by_user_id);
+CREATE INDEX idx_referral_codes_code ON referral_codes(code);
+CREATE INDEX idx_user_referrals_code ON user_referrals(referral_code_id);
+CREATE INDEX idx_user_referrals_user ON user_referrals(used_by_user_id);
+
+-- Add foreign key constraint for referred_by_code_id
+ALTER TABLE users 
+  ADD CONSTRAINT fk_users_referred_by 
+  FOREIGN KEY (referred_by_code_id) 
+  REFERENCES referral_codes(referral_code_id) 
+  ON DELETE SET NULL;
 
 -- Vehicles table (immutable with audit trail)
 CREATE TABLE IF NOT EXISTS vehicles (
@@ -38,7 +81,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
     description TEXT NOT NULL,
     image TEXT NOT NULL,
     images TEXT[] DEFAULT '{}',
-    seller_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    seller_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL,
     seller_name VARCHAR(255) NOT NULL,
     seller_phone VARCHAR(50) NOT NULL,
     seller_email VARCHAR(255) NOT NULL,
@@ -66,14 +109,14 @@ CREATE TABLE IF NOT EXISTS vehicles (
     financing_available BOOLEAN DEFAULT FALSE,
     trade_accepted BOOLEAN DEFAULT FALSE,
     test_drive_available BOOLEAN DEFAULT FALSE,
+    external_id VARCHAR(255),
+    external_url TEXT,
     
     -- Metadata
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     is_active BOOLEAN DEFAULT TRUE,  -- Soft delete: false = deleted
     deleted_at TIMESTAMP WITH TIME ZONE,  -- When soft deleted
-    views_count INTEGER DEFAULT 0,
-    favorites_count INTEGER DEFAULT 0,
     
     -- Audit fields
     created_by INTEGER REFERENCES users(user_id),
@@ -98,6 +141,9 @@ CREATE INDEX idx_vehicles_created_at ON vehicles(created_at DESC);
 -- Composite indexes for common filter combinations
 CREATE INDEX idx_vehicles_brand_model ON vehicles(brand, model);
 CREATE INDEX idx_vehicles_condition_source ON vehicles(condition, source);
+ALTER TABLE vehicles
+  ADD CONSTRAINT vehicles_source_external_id_key
+  UNIQUE (source, external_id);
 
 -- Full text search index on description
 CREATE INDEX idx_vehicles_description_fts ON vehicles USING gin(to_tsvector('portuguese', description));
@@ -116,17 +162,6 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
 
--- Favorites table (for future use)
-CREATE TABLE IF NOT EXISTS favorites (
-    favorite_id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-    vehicle_id INTEGER NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, vehicle_id)
-);
-
-CREATE INDEX idx_favorites_user_id ON favorites(user_id);
-CREATE INDEX idx_favorites_vehicle_id ON favorites(vehicle_id);
 
 -- Contact requests table (for future use)
 CREATE TABLE IF NOT EXISTS contact_requests (
@@ -164,7 +199,6 @@ CREATE OR REPLACE FUNCTION increment_vehicle_views(vehicle_slug VARCHAR)
 RETURNS VOID AS $$
 BEGIN
     UPDATE vehicles 
-    SET views_count = views_count + 1 
     WHERE slug = vehicle_slug;
 END;
 $$ LANGUAGE plpgsql;

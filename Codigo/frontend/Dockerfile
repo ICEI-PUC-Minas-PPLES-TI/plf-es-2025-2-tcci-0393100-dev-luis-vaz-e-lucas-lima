@@ -2,9 +2,13 @@ FROM ocaml/opam:alpine-ocaml-4.14
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies and timezone data
 USER root
-RUN apk add --no-cache sqlite sqlite-dev libev-dev openssl-dev gmp-dev
+RUN apk add --no-cache sqlite sqlite-dev libev-dev openssl-dev gmp-dev tzdata
+
+# Set timezone to São Paulo
+ENV TZ=America/Sao_Paulo
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 USER opam
 

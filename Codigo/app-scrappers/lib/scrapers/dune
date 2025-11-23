@@ -1,0 +1,7 @@
+(library
+ (name scrapers)
+ (public_name app_scrappers.scrapers)
+ (wrapped false)
+ (libraries lwt lwt.unix curl curl_lwt yojson uri logs re str)
+ (preprocess (pps lwt_ppx ppx_deriving_yojson)))
+

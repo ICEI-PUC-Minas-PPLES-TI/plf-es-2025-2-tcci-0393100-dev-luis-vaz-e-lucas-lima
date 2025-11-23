@@ -1,0 +1,26 @@
+# Requirements for scrappers Python scripts
+
+# HTTP requests
+requests
+
+# HTML parsing
+beautifulsoup4
+
+# Browser automation (optional - comment out if not used)
+selenium
+
+# Data manipulation and CSV
+pandas
+
+# For running headless browsers (if using selenium with Chrome)
+# Uncomment if needed:
+# webdriver-manager
+
+# Progress bar (optional)
+tqdm
+
+# If working with JSON APIs (builtin, so not listed)
+
+# Any other commonly used libraries (add/remove as needed)
+# lxml
+

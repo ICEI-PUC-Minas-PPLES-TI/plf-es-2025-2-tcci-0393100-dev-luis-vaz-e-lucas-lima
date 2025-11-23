@@ -33,5 +33,8 @@
   (uuidm (>= 0.9.8))
   (ptime (>= 1.1.0))
   logs
-  fmt))
+  fmt
+  cohttp-lwt-unix
+  conduit-lwt-unix
+  lwt_ssl))
 

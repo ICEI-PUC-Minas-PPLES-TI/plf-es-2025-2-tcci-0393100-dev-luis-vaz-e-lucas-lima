@@ -1,0 +1,24 @@
+(lang dune 3.0)
+
+(name app_scrappers)
+
+(package
+ (name app_scrappers)
+ (synopsis "BusCars Scraper Orchestrator")
+ (description "Automated scraper orchestrator for BusCars platform")
+ (depends
+  dune
+  lwt
+  lwt_ppx
+  curl
+  curl_lwt
+  yojson
+  uri
+  logs
+  fmt
+  ppx_deriving_yojson
+  caqti
+  caqti-lwt
+  postgresql
+  re))
+

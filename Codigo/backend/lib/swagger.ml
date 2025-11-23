@@ -113,7 +113,7 @@ let swagger_spec = {|
           {
             "name": "source",
             "in": "query",
-            "schema": { "type": "string", "enum": ["buscar", "webmotors", "localiza", "icarros", "bringatrailer"] },
+            "schema": { "type": "string", "enum": ["buscar", "webmotors", "localiza", "icarros"] },
             "description": "Filter by source (buscar = internal, others = scraped)"
           },
           {
@@ -193,6 +193,79 @@ let swagger_spec = {|
           },
           "404": {
             "description": "Vehicle not found"
+          }
+        }
+      }
+    },
+    "/api/fipe/brands": {
+      "get": {
+        "tags": ["fipe"],
+        "summary": "List FIPE brands",
+        "description": "Fetches and caches the list of FIPE brands (cars by default)",
+        "parameters": [
+          {
+            "name": "vehicle_type",
+            "in": "query",
+            "schema": { "type": "string", "default": "cars" },
+            "description": "Vehicle type (cars, motorcycles, trucks)"
+          },
+          {
+            "name": "reference",
+            "in": "query",
+            "schema": { "type": "string" },
+            "description": "Reference month code"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of brands",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/fipe/brands/{brand_code}/models": {
+      "get": {
+        "tags": ["fipe"],
+        "summary": "List FIPE models for brand",
+        "parameters": [
+          {
+            "name": "brand_code",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "FIPE brand code"
+          },
+          {
+            "name": "vehicle_type",
+            "in": "query",
+            "schema": { "type": "string", "default": "cars" }
+          },
+          {
+            "name": "reference",
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of models",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid brand code"
           }
         }
       }
@@ -306,7 +379,7 @@ let swagger_spec = {|
           "condition": { "type": "string", "enum": ["used", "new"] },
           "source": { 
             "type": "string", 
-            "enum": ["buscar", "webmotors", "localiza", "icarros", "bringatrailer"],
+            "enum": ["buscar", "webmotors", "localiza", "icarros"],
             "description": "buscar = internal listing, others = scraped from external platforms"
           },
           "engine": { "type": "string" },
@@ -331,9 +404,7 @@ let swagger_spec = {|
           "test_drive_available": { "type": "boolean" },
           "created_at": { "type": "string", "format": "date-time" },
           "updated_at": { "type": "string", "format": "date-time" },
-          "is_active": { "type": "boolean" },
-          "views_count": { "type": "integer" },
-          "favorites_count": { "type": "integer" }
+          "is_active": { "type": "boolean" }
         }
       },
       "User": {

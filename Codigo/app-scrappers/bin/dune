@@ -1,0 +1,6 @@
+(executable
+ (public_name app_scrappers)
+ (name main)
+ (libraries app_scrappers_lib)
+ (preprocess (pps lwt_ppx ppx_deriving_yojson)))
+

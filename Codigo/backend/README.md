@@ -82,7 +82,6 @@ The database includes the following tables:
 - `users` - User accounts with authentication
 - `vehicles` - Vehicle listings with full details
 - `sessions` - User sessions
-- `favorites` - User favorites (prepared for future use)
 - `contact_requests` - Contact inquiries (prepared for future use)
 
 ## Development

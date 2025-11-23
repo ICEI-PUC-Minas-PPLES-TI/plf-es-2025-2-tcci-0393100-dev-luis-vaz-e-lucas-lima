@@ -72,23 +72,82 @@ let authenticate email password =
         ) >>= (function
         | Some (user_id, name, email) ->
             create_session user_id >>= fun session_id ->
-            let user = Types.{
-              user_id;
-              name;
-              email;
-              password_hash = "";
-              phone = None;
-              created_at = "";
-              updated_at = "";
-              is_active = true;
-              is_verified = true;
-              subscription_tier = "individual";
-            } in
-            Lwt.return_ok (session_id, user)
-        | None -> Lwt.return_error "User not found")
+            (* Get full user data *)
+            Database.with_connection (fun (module Db : Caqti_lwt.CONNECTION) ->
+              Db.collect_list Database.Q.get_full_user_by_id user_id
+            ) >>= (function
+            | [user_json] ->
+                (match Types.user_of_yojson (Yojson.Safe.from_string user_json) with
+                 | Ok user ->
+                     let user_without_password = { user with password_hash = "" } in
+                     Lwt.return_ok (session_id, user_without_password)
+                 | Error _ ->
+                     (* Fallback to basic user data *)
+                     let user = Types.{
+                       user_id;
+                       name;
+                       email;
+                       password_hash = "";
+                       phone = None;
+                       document_number = None;
+                       address_street = None;
+                       address_number = None;
+                       address_complement = None;
+                       address_neighborhood = None;
+                       address_city = None;
+                       address_state = None;
+                       address_zipcode = None;
+                       is_admin = false;
+                       referred_by_code_id = None;
+                       created_at = "";
+                       updated_at = "";
+                       is_active = true;
+                       is_verified = true;
+                       subscription_tier = "individual";
+                     } in
+                     Lwt.return_ok (session_id, user))
+            | _ ->
+                (* Fallback to basic user data *)
+                (* Fallback user - will be replaced by full user data from DB *)
+                let user = Types.{
+                  user_id;
+                  name;
+                  email;
+                  password_hash = "";
+                  phone = None;
+                  document_number = None;
+                  address_street = None;
+                  address_number = None;
+                  address_complement = None;
+                  address_neighborhood = None;
+                  address_city = None;
+                  address_state = None;
+                  address_zipcode = None;
+                  is_admin = false;
+                  referred_by_code_id = None;
+                  created_at = "";
+                  updated_at = "";
+                  is_active = true;
+                  is_verified = true;
+                  subscription_tier = "individual";
+                } in
+                (* Get full user data *)
+                Database.with_connection (fun (module Db : Caqti_lwt.CONNECTION) ->
+                  Db.collect_list Database.Q.get_full_user_by_id user_id
+                ) >>= (function
+                | [user_json] ->
+                    (match Types.user_of_yojson (Yojson.Safe.from_string user_json) with
+                     | Ok full_user ->
+                         let user_without_password = { full_user with password_hash = "" } in
+                         Lwt.return_ok (session_id, user_without_password)
+                     | Error _ ->
+                         Lwt.return_ok (session_id, user))
+                | _ ->
+                    Lwt.return_ok (session_id, user)))
+        | None -> Lwt.return_error "Usuário não encontrado")
       else
-        Lwt.return_error "Invalid password"
-  | None -> Lwt.return_error "User not found"
+        Lwt.return_error "Senha incorreta"
+  | None -> Lwt.return_error "Usuário não encontrado"
 
 (* Get user from session *)
 let get_user_from_session session_id =
@@ -98,18 +157,64 @@ let get_user_from_session session_id =
         Db.find_opt Database.Q.find_user_by_id user_id
       ) >>= (function
       | Some (user_id, name, email) ->
-          let user = Types.{
-            user_id;
-            name;
-            email;
-            password_hash = "";
-            phone = None;
-            created_at = "";
-            updated_at = "";
-            is_active = true;
-            is_verified = true;
-            subscription_tier = "individual";
-          } in
-          Lwt.return_some user
+          (* Get full user data from DB *)
+          Database.with_connection (fun (module Db : Caqti_lwt.CONNECTION) ->
+            Db.collect_list Database.Q.get_full_user_by_id user_id
+          ) >>= (function
+          | [user_json] ->
+              (match Types.user_of_yojson (Yojson.Safe.from_string user_json) with
+               | Ok full_user ->
+                   let user_without_password = { full_user with password_hash = "" } in
+                   Lwt.return_some user_without_password
+               | Error _ ->
+                   (* Fallback user *)
+                   let user = Types.{
+                     user_id;
+                     name;
+                     email;
+                     password_hash = "";
+                     phone = None;
+                     document_number = None;
+                     address_street = None;
+                     address_number = None;
+                     address_complement = None;
+                     address_neighborhood = None;
+                     address_city = None;
+                     address_state = None;
+                     address_zipcode = None;
+                     is_admin = false;
+                     referred_by_code_id = None;
+                     created_at = "";
+                     updated_at = "";
+                     is_active = true;
+                     is_verified = true;
+                     subscription_tier = "individual";
+                   } in
+                   Lwt.return_some user)
+          | _ ->
+              (* Fallback user *)
+              let user = Types.{
+                user_id;
+                name;
+                email;
+                password_hash = "";
+                phone = None;
+                document_number = None;
+                address_street = None;
+                address_number = None;
+                address_complement = None;
+                address_neighborhood = None;
+                address_city = None;
+                address_state = None;
+                address_zipcode = None;
+                is_admin = false;
+                referred_by_code_id = None;
+                created_at = "";
+                updated_at = "";
+                is_active = true;
+                is_verified = true;
+                subscription_tier = "individual";
+              } in
+              Lwt.return_some user)
       | None -> Lwt.return_none)
   | None -> Lwt.return_none

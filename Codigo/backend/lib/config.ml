@@ -44,8 +44,23 @@ let redis_db =
 
 (* Cache TTL (time to live) in seconds *)
 let cache_ttl_vehicle_detail = 300  (* 5 minutes *)
-let cache_ttl_vehicle_list = 60     (* 1 minute *)
+let cache_ttl_vehicle_list = 300     (* 5 minutes - increased from 1 minute to reduce database load *)
 let cache_ttl_user = 600            (* 10 minutes *)
+let cache_ttl_fipe = 604800          (* 7 days - increased due to FIPE API rate limits (500 req/day without token) *)
+let cache_ttl_stats = 600           (* 10 minutes - for statistics and aggregations *)
+
+(* FIPE API configuration *)
+let fipe_api_base_url =
+  try Sys.getenv "FIPE_API_BASE_URL"
+  with Not_found -> "https://fipe.parallelum.com.br/api/v2"
+
+let fipe_api_token =
+  try Sys.getenv "FIPE_API_TOKEN"
+  with Not_found -> ""
+
+let fipe_default_vehicle_type =
+  try Sys.getenv "FIPE_VEHICLE_TYPE"
+  with Not_found -> "cars"
 
 (* Server configuration *)
 let server_host = 

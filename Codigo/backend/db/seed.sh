@@ -101,8 +101,6 @@ curl -s -X POST "$BACKEND_URL/api/vehicles" \
     "created_at": "",
     "updated_at": "",
     "is_active": true,
-    "views_count": 0,
-    "favorites_count": 0
   }' | jq '.'
 
 echo ""
@@ -151,8 +149,6 @@ curl -s -X POST "$BACKEND_URL/api/vehicles" \
     "created_at": "",
     "updated_at": "",
     "is_active": true,
-    "views_count": 0,
-    "favorites_count": 0
   }' | jq '.'
 
 echo ""

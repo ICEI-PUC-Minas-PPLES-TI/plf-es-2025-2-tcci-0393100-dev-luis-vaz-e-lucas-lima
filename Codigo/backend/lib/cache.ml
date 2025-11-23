@@ -33,6 +33,8 @@ let vehicle_key slug = Printf.sprintf "vehicle:%s" slug
 let vehicle_list_key page filters = 
   Printf.sprintf "vehicles:list:%d:%s" page (Yojson.Safe.to_string (Types.vehicle_filter_to_yojson filters))
 let user_key user_id = Printf.sprintf "user:%d" user_id
+let stats_key name = Printf.sprintf "stats:%s" name
+let stats_key_with_param name param = Printf.sprintf "stats:%s:%s" name param
 
 (* Get cached value *)
 let get key =
@@ -55,13 +57,88 @@ let delete key =
 
 (* Invalidate all vehicle list caches *)
 let invalidate_vehicle_lists () =
+  Lwt.catch
+    (fun () ->
   get_conn () >>= fun conn ->
   Redis_lwt.Client.keys conn "vehicles:list:*" >>= fun keys ->
   if List.length keys > 0 then
+        (Logs.debug (fun m -> m "Invalidating %d vehicle list cache keys" (List.length keys));
     Redis_lwt.Client.del conn keys >>= fun _ ->
-    Lwt.return_unit
+         Lwt.return_unit)
   else
-    Lwt.return_unit
+        Lwt.return_unit)
+    (fun exn ->
+      (* If Redis fails, log but don't fail the operation *)
+      Logs.warn (fun m -> m "Failed to invalidate vehicle list cache: %s" (Printexc.to_string exn));
+      Lwt.return_unit)
+
+(* Invalidate vehicle lists granularly based on vehicle attributes *)
+(* This invalidates list caches that could be affected by a vehicle change *)
+let invalidate_vehicle_lists_granular ?brand ?model ?location_state ?location_city ?source ?condition () =
+  Lwt.catch
+    (fun () ->
+      get_conn () >>= fun conn ->
+      Redis_lwt.Client.keys conn "vehicles:list:*" >>= fun all_keys ->
+      if List.length all_keys = 0 then
+        Lwt.return_unit
+      else
+        (* Build search patterns for each attribute *)
+        let patterns = ref [] in
+        (match brand with
+         | Some b -> patterns := (Printf.sprintf "\"brand\":\"%s\"" b) :: !patterns
+         | None -> ());
+        (match model with
+         | Some m -> patterns := (Printf.sprintf "\"model\":\"%s\"" m) :: !patterns
+         | None -> ());
+        (match location_state with
+         | Some ls -> patterns := (Printf.sprintf "\"location_state\":\"%s\"" ls) :: !patterns
+         | None -> ());
+        (match location_city with
+         | Some lc -> patterns := (Printf.sprintf "\"location_city\":\"%s\"" lc) :: !patterns
+         | None -> ());
+        (match source with
+         | Some s -> patterns := (Printf.sprintf "\"source\":\"%s\"" s) :: !patterns
+         | None -> ());
+        (match condition with
+         | Some c -> patterns := (Printf.sprintf "\"condition\":\"%s\"" c) :: !patterns
+         | None -> ());
+        
+        (* If no patterns, invalidate all (safe fallback) *)
+        if List.length !patterns = 0 then
+          invalidate_vehicle_lists ()
+        else
+          (* Helper to check if string contains substring *)
+          let string_contains str substr =
+            try
+              let len = String.length substr in
+              let str_len = String.length str in
+              let rec check i =
+                if i + len > str_len then false
+                else if String.sub str i len = substr then true
+                else check (i + 1)
+              in
+              check 0
+            with _ -> false
+          in
+          (* Find keys that contain any of the patterns OR are general listings (no filters) *)
+          let matching_keys = List.filter (fun key ->
+            List.exists (fun pattern -> string_contains key pattern) !patterns ||
+            (* Also invalidate keys without filters (general listings) *)
+            (not (string_contains key "\"brand\"") &&
+             not (string_contains key "\"model\"") &&
+             not (string_contains key "\"location_state\""))
+          ) all_keys in
+          
+          if List.length matching_keys > 0 then
+            (Logs.debug (fun m -> m "Invalidating %d/%d vehicle list cache keys (granular)" (List.length matching_keys) (List.length all_keys));
+             Redis_lwt.Client.del conn matching_keys >>= fun _ ->
+             Lwt.return_unit)
+          else
+            Lwt.return_unit)
+    (fun exn ->
+      Logs.warn (fun m -> m "Failed to invalidate vehicle list cache granularly: %s" (Printexc.to_string exn));
+      (* Fallback to full invalidation on error *)
+      invalidate_vehicle_lists ())
 
 (* Cache vehicle *)
 let cache_vehicle vehicle =
@@ -107,12 +184,83 @@ let get_vehicle_list page filters =
       with _ -> Lwt.return_none)
   | None -> Lwt.return_none
 
-(* Increment view count in cache (for rate limiting database updates) *)
-let increment_view_count slug =
-  let key = Printf.sprintf "views:%s" slug in
-  get_conn () >>= fun conn ->
-  Redis_lwt.Client.incr conn key >>= fun count ->
-  (* Set expiry of 1 hour for view counter *)
-  Redis_lwt.Client.expire conn key 3600 >>= fun _ ->
-  Lwt.return (Int64.of_int count)
+(* Redis queue for bulk vehicle imports *)
+let bulk_import_queue_key = "vehicles:bulk:import:queue"
 
+(* Add vehicles to bulk import queue *)
+let enqueue_bulk_import vehicles_json =
+  Lwt.catch
+    (fun () ->
+      get_conn () >>= fun conn ->
+      let json_str = Yojson.Safe.to_string (`List vehicles_json) in
+      Redis_lwt.Client.rpush conn bulk_import_queue_key [json_str] >>= fun _ ->
+      Logs.info (fun m -> m "📥 Enqueued %d vehicles for bulk import" (List.length vehicles_json));
+      Lwt.return_ok ())
+    (fun exn ->
+      Logs.warn (fun m -> m "⚠️ Failed to enqueue bulk import: %s" (Printexc.to_string exn));
+      Lwt.return_error (Printexc.to_string exn))
+
+(* Get vehicles from bulk import queue (batch) *)
+let dequeue_bulk_import_batch ?(batch_size=50) () =
+  Lwt.catch
+    (fun () ->
+      get_conn () >>= fun conn ->
+      Redis_lwt.Client.lrange conn bulk_import_queue_key 0 (batch_size - 1) >>= fun items ->
+      if List.length items > 0 then
+        (Redis_lwt.Client.ltrim conn bulk_import_queue_key (List.length items) (-1) >>= fun _ ->
+         let vehicles = List.filter_map (fun json_str ->
+           try
+             let json = Yojson.Safe.from_string json_str in
+             match json with
+             | `List vehicles -> Some vehicles
+             | _ -> None
+           with _ -> None
+         ) items in
+         let all_vehicles = List.flatten vehicles in
+         Logs.info (fun m -> m "📤 Dequeued %d vehicles from bulk import queue" (List.length all_vehicles));
+         Lwt.return_some all_vehicles)
+      else
+        Lwt.return_none)
+    (fun exn ->
+      Logs.warn (fun m -> m "⚠️ Failed to dequeue bulk import: %s" (Printexc.to_string exn));
+      Lwt.return_none)
+
+(* Get queue length *)
+let bulk_import_queue_length () =
+  Lwt.catch
+    (fun () ->
+      get_conn () >>= fun conn ->
+      Redis_lwt.Client.llen conn bulk_import_queue_key >>= fun len ->
+      Lwt.return len)
+    (fun _ -> Lwt.return 0)
+
+(* Cache statistics *)
+let cache_stats name value =
+  let key = stats_key name in
+  set key value Config.cache_ttl_stats
+
+let cache_stats_with_param name param value =
+  let key = stats_key_with_param name param in
+  set key value Config.cache_ttl_stats
+
+let get_stats name =
+  get (stats_key name)
+
+let get_stats_with_param name param =
+  get (stats_key_with_param name param)
+
+(* Invalidate statistics cache *)
+let invalidate_stats () =
+  Lwt.catch
+    (fun () ->
+      get_conn () >>= fun conn ->
+      Redis_lwt.Client.keys conn "stats:*" >>= fun keys ->
+      if List.length keys > 0 then
+        (Logs.debug (fun m -> m "Invalidating %d stats cache keys" (List.length keys));
+         Redis_lwt.Client.del conn keys >>= fun _ ->
+         Lwt.return_unit)
+      else
+        Lwt.return_unit)
+    (fun exn ->
+      Logs.warn (fun m -> m "Failed to invalidate stats cache: %s" (Printexc.to_string exn));
+      Lwt.return_unit)

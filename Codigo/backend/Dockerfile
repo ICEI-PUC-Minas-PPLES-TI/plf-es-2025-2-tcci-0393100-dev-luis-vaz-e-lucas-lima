@@ -32,7 +32,7 @@ RUN eval $(opam env) && dune build --release
 # Runtime stage
 FROM debian:11-slim
 
-# Install runtime dependencies
+# Install runtime dependencies and timezone data
 RUN apt-get update && apt-get install -y \
     libpq5 \
     libgmp10 \
@@ -41,7 +41,12 @@ RUN apt-get update && apt-get install -y \
     zlib1g \
     ca-certificates \
     wget \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
+
+# Set timezone to São Paulo
+ENV TZ=America/Sao_Paulo
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Create app user
 RUN useradd -m -s /bin/bash buscar

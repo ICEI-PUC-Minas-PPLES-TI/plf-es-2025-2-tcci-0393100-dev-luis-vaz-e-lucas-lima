@@ -1,6 +1,6 @@
 (library
  (name buscar_backend_lib)
- (modules types config database cache auth repository vehicle_commands swagger)
+(modules types config database cache auth repository vehicle_commands swagger fipe)
   (libraries
    dream
    lwt
@@ -19,6 +19,9 @@
    ptime.clock.os
    logs
    logs.fmt
-   fmt)
+  fmt
+  cohttp-lwt-unix
+  conduit-lwt-unix
+  lwt_ssl)
  (preprocess (pps ppx_deriving_yojson)))
 

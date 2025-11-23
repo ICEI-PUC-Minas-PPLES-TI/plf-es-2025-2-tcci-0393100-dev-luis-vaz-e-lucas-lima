@@ -25,6 +25,9 @@ depends: [
   "ptime" {>= "1.1.0"}
   "logs"
   "fmt"
+  "cohttp-lwt-unix"
+  "conduit-lwt-unix"
+  "lwt_ssl"
   "odoc" {with-doc}
 ]
 build: [
@@ -42,4 +45,3 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/rastrian/buscar-mockup.git"
-
