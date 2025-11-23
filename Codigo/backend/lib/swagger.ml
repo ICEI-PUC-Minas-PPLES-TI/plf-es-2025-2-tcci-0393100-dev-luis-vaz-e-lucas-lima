@@ -14,12 +14,8 @@ let swagger_spec = {|
   },
   "servers": [
     {
-      "url": "http://localhost:3000",
+      "url": "https://buscar-demo.rastrian.dev/",
       "description": "Development server"
-    },
-    {
-      "url": "http://localhost:9004",
-      "description": "Development server (external port)"
     }
   ],
   "tags": [
@@ -631,11 +627,13 @@ let swagger_spec = {|
       "get": {
         "tags": ["referral-codes"],
         "summary": "List referral codes",
-        "description": "List referral codes created by current user",
+        "description": "List referral codes. Regular users see only their own codes. Admins see all codes.",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
-          { "name": "per_page", "in": "query", "schema": { "type": "integer", "default": 20 } }
+          { "name": "per_page", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "search", "in": "query", "schema": { "type": "string" }, "description": "Search by code" },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["all", "active", "inactive"] }, "description": "Filter by status", "default": "all" }
         ],
         "responses": {
           "200": {
@@ -652,7 +650,7 @@ let swagger_spec = {|
       "post": {
         "tags": ["referral-codes"],
         "summary": "Create referral code",
-        "description": "Create a new referral code",
+        "description": "Create a new referral code (admin only). If code is not provided, a random unique code will be generated.",
         "security": [{ "bearerAuth": [] }],
         "requestBody": {
           "content": {
@@ -663,7 +661,9 @@ let swagger_spec = {|
         },
         "responses": {
           "201": { "description": "Referral code created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponse" } } } },
-          "401": { "description": "Not authenticated" }
+          "401": { "description": "Not authenticated" },
+          "403": { "description": "Admin only" },
+          "400": { "description": "Code already exists" }
         }
       }
     },
@@ -671,7 +671,7 @@ let swagger_spec = {|
       "post": {
         "tags": ["referral-codes"],
         "summary": "Distribute referral codes",
-        "description": "Distribute referral codes to users",
+        "description": "Distribute referral codes to users (admin only). Creates new codes and assigns them to specified users.",
         "security": [{ "bearerAuth": [] }],
         "requestBody": {
           "required": true,
@@ -683,7 +683,8 @@ let swagger_spec = {|
         },
         "responses": {
           "200": { "description": "Codes distributed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponse" } } } },
-          "401": { "description": "Not authenticated" }
+          "401": { "description": "Not authenticated" },
+          "403": { "description": "Admin only" }
         }
       }
     },
@@ -691,14 +692,15 @@ let swagger_spec = {|
       "post": {
         "tags": ["referral-codes"],
         "summary": "Deactivate referral code",
-        "description": "Deactivate a specific referral code",
+        "description": "Deactivate a specific referral code (admin only)",
         "security": [{ "bearerAuth": [] }],
         "parameters": [
           { "name": "code_id", "in": "path", "required": true, "schema": { "type": "integer" } }
         ],
         "responses": {
           "200": { "description": "Code deactivated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponse" } } } },
-          "401": { "description": "Not authenticated" }
+          "401": { "description": "Not authenticated" },
+          "403": { "description": "Admin only" }
         }
       }
     },
@@ -706,11 +708,12 @@ let swagger_spec = {|
       "post": {
         "tags": ["referral-codes"],
         "summary": "Deactivate all referral codes",
-        "description": "Deactivate all referral codes created by current user",
+        "description": "Deactivate all referral codes (admin only)",
         "security": [{ "bearerAuth": [] }],
         "responses": {
           "200": { "description": "All codes deactivated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiResponse" } } } },
-          "401": { "description": "Not authenticated" }
+          "401": { "description": "Not authenticated" },
+          "403": { "description": "Admin only" }
         }
       }
     },
