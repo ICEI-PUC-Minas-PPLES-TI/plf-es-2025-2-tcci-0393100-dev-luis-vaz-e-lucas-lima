@@ -50,7 +50,7 @@
 
 ## 🔗 Links Úteis
 * 🌐 **Demo Online:** [Acesse a Aplicação Web](https://buscar-demo.rastrian.dev/)
-  > 💻 **Descrição:** Link para a aplicação em ambiente de produção.
+  > 💻 **Descrição:** Link para a aplicação em ambiente de produção. Para ver o swagger [clique aqui](https://buscar-demo.rastrian.dev/api/docs#/).
 * 📖 **Documentação Oficial:** [Leia o TCC-Doc-Projeto-BusCars.pdf](https://github.com/ICEI-PUC-Minas-PPLES-TI/plf-es-2025-2-tcci-0393100-dev-luis-vaz-e-lucas-lima/blob/main/Artefatos/DocumentoDeProjeto/TCC-Doc-Projeto-BusCars.pdf)
   > [cite_start]📚 **Descrição:** Acesso à documentação técnica completa do projeto[cite: 39].
 * 📖 **Repositório GitHub:** [Código Fonte da Aplicação BusCars](https://github.com/ICEI-PUC-Minas-PPLES-TI/plf-es-2025-2-tcci-0393100-dev-luis-vaz-e-lucas-lima/tree/main/Codigo)
