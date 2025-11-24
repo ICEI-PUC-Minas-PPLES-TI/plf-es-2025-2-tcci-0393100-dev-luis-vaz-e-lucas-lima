@@ -196,3 +196,22 @@ Definição: **N3TA** refere-se a **Teste de Aceitação** para a Necessidade 3 
 git clone [https://github.com/ICEI-PUC-Minas-PPLES-TI/plf-es-2025-2-tcci-0393100-dev-luis-vaz-e-lucas-lima](https://github.com/ICEI-PUC-Minas-PPLES-TI/plf-es-2025-2-tcci-0393100-dev-luis-vaz-e-lucas-lima)
 cd plf-es-2025-2-tcci-0393100-dev-luis-vaz-e-lucas-lima
 ```
+
+2.  Suba todos os serviços:    Execute o comando na raiz do projeto:
+
+Bash
+
+docker-compose up --build -d
+💡 O parâmetro --build garante que as imagens mais recentes do projeto sejam geradas, e -d executa em segundo plano.
+
+3.  Acesso:    O Front-end estará acessível na porta configurada pelo Nginx/Docker.
+
+👥 Autores
+O projeto foi elaborado por alunos do curso de Engenharia de Software da PUC Minas.
+
+Lucas Araujo Borges de Lima - :octocat:
+
+Luis Gustavo Vaz - :octocat:
+
+📄 Licença
+Este projeto é distribuído sob a Licença MIT.
